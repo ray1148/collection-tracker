@@ -65,7 +65,11 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Serif TC',serif;mi
 .form-input,.form-select,.form-textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Serif TC',serif;font-size:14px;padding:10px 12px;transition:border-color .2s;outline:none;}
 .form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);}
 .form-select option{background:var(--surface2);}
-.form-row{display:flex;flex-direction:column;gap:0;}
+
+/* ── FIX 1: form-row 改為橫排 ── */
+.form-row{display:flex;flex-direction:row;gap:12px;}
+.form-row .form-group{flex:1;margin-bottom:0;}
+
 .isbn-row{display:flex;gap:8px;}
 .isbn-row .form-input{flex:1;}
 .scan-btn{flex-shrink:0;padding:10px 14px;background:var(--accent);color:var(--bg);border:none;border-radius:8px;font-size:15px;cursor:pointer;}
@@ -117,28 +121,22 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Serif TC',serif;mi
 @keyframes scanLine{0%{transform:translate(-50%,-60px)}100%{transform:translate(-50%,60px)}}
 .scan-status{position:absolute;bottom:80px;left:0;right:0;color:#fff;font-size:14px;text-align:center;padding:0 20px;text-shadow:0 1px 4px #000;}
 .scan-close{position:absolute;top:20px;right:20px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.3);color:#fff;width:44px;height:44px;border-radius:50%;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;}
-
-
-
-
-
-
-
-
-
-
-
 .backup-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
 .backup-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .backup-item-date{font-family:'Space Mono',monospace;font-size:13px;}
 .backup-item-meta{font-size:11px;color:var(--text2);margin-top:2px;}
-.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:6px;}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s infinite;vertical-align:middle;margin-right:6px;}
 @keyframes spin{to{transform:rotate(360deg)}}
 .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--accent);color:var(--text);padding:10px 20px;border-radius:20px;font-size:13px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
 .toast.show{opacity:1;}
 .loading-screen{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
 .loading-screen .icon{font-size:48px;}
 .loading-screen p{color:var(--text2);font-size:14px;}
+
+/* ── ISBN 來源標籤 ── */
+.isbn-source-badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle;}
+.isbn-source-badge.google{background:rgba(66,133,244,.15);color:#4285f4;border:1px solid rgba(66,133,244,.3);}
+.isbn-source-badge.openlibrary{background:rgba(76,175,125,.15);color:var(--success);border:1px solid rgba(76,175,125,.3);}
 </style>
 </head>
 <body>
@@ -226,12 +224,13 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Serif TC',serif;mi
         <input class="form-input" id="f_nowPrice" type="number" placeholder="0">
       </div>
     </div>
-    <div class="form-row">
-      <div class="form-group" style="margin-bottom:0">
+    <!-- FIX 1: 購買日期 + 購買來源 改為橫排 -->
+    <div class="form-row" style="margin-bottom:16px">
+      <div class="form-group">
         <label class="form-label">購買日期</label>
         <input class="form-input" id="f_date" type="date">
       </div>
-      <div class="form-group" style="margin-bottom:0">
+      <div class="form-group">
         <label class="form-label">購買來源</label>
         <input class="form-input" id="f_source" placeholder="書店、代購、拍賣...">
       </div>
@@ -318,7 +317,7 @@ const db = getFirestore(app);
 const BOOK_CATS=['書籍','漫畫','小說','原文書'];
 const DEFAULT_CATS=['書籍','漫畫','小說','原文書','CD','模型','二創','其他'];
 const MAX_BACKUPS=5, BACKUP_INTERVAL_MS=30*24*60*60*1000;
-const DOC_ID='main'; // single document storing all data
+const DOC_ID='main';
 
 let items=[], categories=[...DEFAULT_CATS];
 let currentTab='all', editingId=null, currentPhotos=[], viewingId=null, scannerRunning=false;
@@ -423,34 +422,71 @@ function toggleIsbn(){document.getElementById('isbnGroup').style.display=isBookC
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
 window.toggleIsbn=toggleIsbn;
 
-// ── ISBN ──────────────────────────────────────
+// ── FIX 2: ISBN 查詢 - Google Books + Open Library 雙重備援 ──
 let isbnTimer;
+
 async function lookupISBN(isbn){
   const el=document.getElementById('isbnResult');
-  el.innerHTML='<span class="spinner"></span>查詢中...';
+  el.innerHTML='<span class="spinner"></span>查詢書籍資訊中...';
+
+  // 嘗試 1：Google Books API
   try{
-    const r=await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
-    const data=await r.json();
-    if(data.totalItems>0&&data.items?.length){
-      const info=data.items[0].volumeInfo;
-      const title=info.title||'';
-      const authors=(info.authors||[]).join(', ');
-      const pub=info.publisher||'';
-      const year=info.publishedDate?info.publishedDate.slice(0,4):'';
-      const thumb=info.imageLinks?.thumbnail||'';
-      if(title&&!document.getElementById('f_name').value.trim()) document.getElementById('f_name').value=title;
-      el.innerHTML=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:4px;display:flex;gap:10px;align-items:flex-start">
-        ${thumb?`<img src="${thumb}" style="width:50px;flex-shrink:0;border-radius:4px;">`:''}
-        <div>
-          ${title?`<div style="font-weight:600;margin-bottom:4px">${title}</div>`:''}
-          ${authors?`<div style="font-size:12px;color:var(--text2)">作者：${authors}</div>`:''}
-          ${pub?`<div style="font-size:12px;color:var(--text2)">出版社：${pub}</div>`:''}
-          ${year?`<div style="font-size:12px;color:var(--text2)">出版年：${year}</div>`:''}
-        </div>
-      </div>`;
-      showToast('✅ 書籍資訊已自動填入');
-    }else{el.innerHTML='<span style="color:var(--text2);font-size:12px">找不到書籍資訊，請手動填寫</span>';}
-  }catch(e){el.innerHTML='<span style="color:var(--text2);font-size:12px">查詢失敗</span>';}
+    const r=await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&langRestrict=zh`,{signal:AbortSignal.timeout(8000)});
+    if(r.ok){
+      const data=await r.json();
+      if(data.totalItems>0&&data.items?.length){
+        renderISBNResult(data.items[0].volumeInfo,'Google Books');
+        return;
+      }
+    }
+  }catch(e){console.warn('Google Books failed:',e);}
+
+  // 嘗試 2：Open Library API（無 CORS 問題，資料豐富）
+  try{
+    const r=await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`,{signal:AbortSignal.timeout(8000)});
+    if(r.ok){
+      const data=await r.json();
+      const key=`ISBN:${isbn}`;
+      if(data[key]){
+        const book=data[key];
+        const info={
+          title:book.title||'',
+          authors:(book.authors||[]).map(a=>a.name).join(', '),
+          publisher:(book.publishers||[]).map(p=>p.name).join(', '),
+          publishedDate:book.publish_date||'',
+          thumbnail:book.cover?.medium||book.cover?.small||''
+        };
+        renderISBNResult(info,'Open Library');
+        return;
+      }
+    }
+  }catch(e){console.warn('Open Library failed:',e);}
+
+  // 兩個都失敗
+  el.innerHTML='<span style="color:var(--text2);font-size:12px">⚠️ 找不到書籍資訊，請手動填寫（可能是台灣本地書籍）</span>';
+}
+
+function renderISBNResult(info, source){
+  const el=document.getElementById('isbnResult');
+  const {title='',authors='',publisher='',publishedDate='',thumbnail=''}=info;
+  const year=publishedDate?publishedDate.toString().slice(0,4):'';
+  const sourceBadge=source==='Google Books'
+    ?`<span class="isbn-source-badge google">Google Books</span>`
+    :`<span class="isbn-source-badge openlibrary">Open Library</span>`;
+
+  if(title&&!document.getElementById('f_name').value.trim())
+    document.getElementById('f_name').value=title;
+
+  el.innerHTML=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:4px;display:flex;gap:10px;align-items:flex-start">
+    ${thumbnail?`<img src="${thumbnail}" style="width:50px;flex-shrink:0;border-radius:4px;object-fit:cover;">`:''}
+    <div style="flex:1;min-width:0">
+      ${title?`<div style="font-weight:600;margin-bottom:4px;font-size:13px">${title} ${sourceBadge}</div>`:''}
+      ${authors?`<div style="font-size:12px;color:var(--text2)">✍️ ${authors}</div>`:''}
+      ${publisher?`<div style="font-size:12px;color:var(--text2)">🏢 ${publisher}</div>`:''}
+      ${year?`<div style="font-size:12px;color:var(--text2)">📅 ${year}</div>`:''}
+    </div>
+  </div>`;
+  showToast('✅ 書籍資訊已自動填入');
 }
 
 // ── Scanner ───────────────────────────────────
@@ -661,11 +697,12 @@ window.doBackupFromReminder=doBackupFromReminder;
 window.dismissReminder=dismissReminder;
 window.importBackup=importBackup;
 
-// ── ISBN input ────────────────────────────────
+// ── ISBN input listener ────────────────────────
 document.getElementById('f_isbn').addEventListener('input',e=>{
   clearTimeout(isbnTimer);
   const v=e.target.value.replace(/[-\s]/g,'');
   if(v.length===10||v.length===13)isbnTimer=setTimeout(()=>lookupISBN(v),600);
+  else document.getElementById('isbnResult').innerHTML='';
 });
 
 // ── Init ──────────────────────────────────────
