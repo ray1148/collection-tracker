@@ -106,17 +106,27 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Serif TC',serif;mi
 .search-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:20px;color:var(--text);font-family:'Noto Serif TC',serif;font-size:13px;padding:8px 16px;outline:none;transition:border-color .2s;}
 .search-input:focus{border-color:var(--accent);}
 .search-input::placeholder{color:var(--text2);}
-#scannerOverlay{display:none;position:fixed;inset:0;background:#000;z-index:500;flex-direction:column;align-items:center;justify-content:center;}
+#scannerOverlay{display:none;position:fixed;inset:0;background:#000;z-index:500;}
 #scannerOverlay.show{display:flex;}
-#scanner-container{position:relative;width:100%;height:100%;}
-#scanner-container video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+#scanner-container{position:fixed;inset:0;}
+#scanner-container video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;}
 #scanner-container canvas{display:none;}
-.scan-frame{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
-.scan-frame-box{width:80%;max-width:320px;height:120px;border:3px solid var(--accent);border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,.55);}
-.scan-line{position:absolute;width:80%;max-width:320px;height:2px;background:var(--accent);animation:scanLine 2s linear infinite;opacity:.8;}
-@keyframes scanLine{0%{top:calc(50% - 60px)}100%{top:calc(50% + 60px)}}
-.scan-status{position:absolute;bottom:80px;left:0;right:0;color:#fff;font-size:14px;text-align:center;padding:0 20px;text-shadow:0 1px 4px rgba(0,0,0,.8);}
-.scan-close{position:absolute;top:20px;right:20px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.3);color:#fff;width:44px;height:44px;border-radius:50%;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;}
+.scan-frame{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2;}
+.scan-frame-box{width:80%;max-width:320px;height:120px;border:3px solid var(--accent);border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,.6);}
+.scan-line{position:fixed;left:50%;transform:translateX(-50%);width:80%;max-width:320px;height:2px;background:var(--accent);animation:scanLine 2s linear infinite;opacity:.8;z-index:3;}
+.scan-status{position:fixed;bottom:80px;left:0;right:0;color:#fff;font-size:14px;text-align:center;padding:0 20px;text-shadow:0 1px 4px #000;z-index:3;}
+.scan-close{position:fixed;top:20px;right:20px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.3);color:#fff;width:44px;height:44px;border-radius:50%;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:4;}
+
+
+
+
+
+
+
+
+
+
+
 .backup-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
 .backup-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .backup-item-date{font-family:'Space Mono',monospace;font-size:13px;}
@@ -418,20 +428,24 @@ async function lookupISBN(isbn){
   const el=document.getElementById('isbnResult');
   el.innerHTML='<span class="spinner"></span>查詢中...';
   try{
-    const r=await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
+    const r=await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
     const data=await r.json();
-    const book=data[`ISBN:${isbn}`];
-    if(book){
-      const title=book.title||'';
-      const authors=(book.authors||[]).map(a=>a.name).join(', ');
-      const pub=(book.publishers||[]).map(p=>p.name).join(', ');
-      const year=book.publish_date||'';
+    if(data.totalItems>0&&data.items?.length){
+      const info=data.items[0].volumeInfo;
+      const title=info.title||'';
+      const authors=(info.authors||[]).join(', ');
+      const pub=info.publisher||'';
+      const year=info.publishedDate?info.publishedDate.slice(0,4):'';
+      const thumb=info.imageLinks?.thumbnail||'';
       if(title&&!document.getElementById('f_name').value.trim()) document.getElementById('f_name').value=title;
-      el.innerHTML=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:4px">
-        ${title?`<div style="font-weight:600;margin-bottom:4px">${title}</div>`:''}
-        ${authors?`<div style="font-size:12px;color:var(--text2)">作者：${authors}</div>`:''}
-        ${pub?`<div style="font-size:12px;color:var(--text2)">出版社：${pub}</div>`:''}
-        ${year?`<div style="font-size:12px;color:var(--text2)">出版年：${year}</div>`:''}
+      el.innerHTML=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:4px;display:flex;gap:10px;align-items:flex-start">
+        ${thumb?`<img src="${thumb}" style="width:50px;flex-shrink:0;border-radius:4px;">`:''}
+        <div>
+          ${title?`<div style="font-weight:600;margin-bottom:4px">${title}</div>`:''}
+          ${authors?`<div style="font-size:12px;color:var(--text2)">作者：${authors}</div>`:''}
+          ${pub?`<div style="font-size:12px;color:var(--text2)">出版社：${pub}</div>`:''}
+          ${year?`<div style="font-size:12px;color:var(--text2)">出版年：${year}</div>`:''}
+        </div>
       </div>`;
       showToast('✅ 書籍資訊已自動填入');
     }else{el.innerHTML='<span style="color:var(--text2);font-size:12px">找不到書籍資訊，請手動填寫</span>';}
