@@ -65,11 +65,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Serif TC',serif;mi
 .form-input,.form-select,.form-textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Serif TC',serif;font-size:14px;padding:10px 12px;transition:border-color .2s;outline:none;}
 .form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);}
 .form-select option{background:var(--surface2);}
-
-/* ── FIX 1: form-row 改為橫排 ── */
-.form-row{display:flex;flex-direction:row;gap:12px;}
-.form-row .form-group{flex:1;margin-bottom:0;}
-
+/* 購買價格/市值 橫排；日期/來源 直排 */
+.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-row-2 .form-group{margin-bottom:0;}
 .isbn-row{display:flex;gap:8px;}
 .isbn-row .form-input{flex:1;}
 .scan-btn{flex-shrink:0;padding:10px 14px;background:var(--accent);color:var(--bg);border:none;border-radius:8px;font-size:15px;cursor:pointer;}
@@ -110,6 +108,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Serif TC',serif;mi
 .search-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:20px;color:var(--text);font-family:'Noto Serif TC',serif;font-size:13px;padding:8px 16px;outline:none;transition:border-color .2s;}
 .search-input:focus{border-color:var(--accent);}
 .search-input::placeholder{color:var(--text2);}
+/* Scanner */
 #scannerOverlay{display:none;position:fixed;inset:0;background:#000;z-index:500;overflow:hidden;}
 #scannerOverlay.show{display:block;}
 #scanner-container{position:absolute;inset:0;}
@@ -121,10 +120,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Serif TC',serif;mi
 @keyframes scanLine{0%{transform:translate(-50%,-60px)}100%{transform:translate(-50%,60px)}}
 .scan-status{position:absolute;bottom:80px;left:0;right:0;color:#fff;font-size:14px;text-align:center;padding:0 20px;text-shadow:0 1px 4px #000;}
 .scan-close{position:absolute;top:20px;right:20px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.3);color:#fff;width:44px;height:44px;border-radius:50%;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;}
+/* Backup */
 .backup-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
 .backup-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .backup-item-date{font-family:'Space Mono',monospace;font-size:13px;}
 .backup-item-meta{font-size:11px;color:var(--text2);margin-top:2px;}
+/* Misc */
 .spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s infinite;vertical-align:middle;margin-right:6px;}
 @keyframes spin{to{transform:rotate(360deg)}}
 .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--accent);color:var(--text);padding:10px 20px;border-radius:20px;font-size:13px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
@@ -132,11 +133,11 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Serif TC',serif;mi
 .loading-screen{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
 .loading-screen .icon{font-size:48px;}
 .loading-screen p{color:var(--text2);font-size:14px;}
-
-/* ── ISBN 來源標籤 ── */
 .isbn-source-badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle;}
 .isbn-source-badge.google{background:rgba(66,133,244,.15);color:#4285f4;border:1px solid rgba(66,133,244,.3);}
 .isbn-source-badge.openlibrary{background:rgba(76,175,125,.15);color:var(--success);border:1px solid rgba(76,175,125,.3);}
+/* ISBN 封面已加入提示 */
+.cover-added{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--success);margin-top:6px;}
 </style>
 </head>
 <body>
@@ -214,7 +215,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Serif TC',serif;mi
       <label class="form-label">描述 / 備註</label>
       <textarea class="form-textarea" id="f_desc" rows="2" placeholder="版本、限量編號、特殊說明..."></textarea>
     </div>
-    <div class="form-row">
+    <!-- 價格橫排 -->
+    <div class="form-row-2" style="margin-bottom:16px">
       <div class="form-group">
         <label class="form-label">購買價格 (NT$)</label>
         <input class="form-input" id="f_buyPrice" type="number" placeholder="0">
@@ -224,16 +226,14 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Serif TC',serif;mi
         <input class="form-input" id="f_nowPrice" type="number" placeholder="0">
       </div>
     </div>
-    <!-- FIX 1: 購買日期 + 購買來源 改為橫排 -->
-    <div class="form-row" style="margin-bottom:16px">
-      <div class="form-group">
-        <label class="form-label">購買日期</label>
-        <input class="form-input" id="f_date" type="date">
-      </div>
-      <div class="form-group">
-        <label class="form-label">購買來源</label>
-        <input class="form-input" id="f_source" placeholder="書店、代購、拍賣...">
-      </div>
+    <!-- 日期和來源直排，避免手機上擠壓 -->
+    <div class="form-group">
+      <label class="form-label">購買日期</label>
+      <input class="form-input" id="f_date" type="date">
+    </div>
+    <div class="form-group">
+      <label class="form-label">購買來源</label>
+      <input class="form-input" id="f_source" placeholder="書店、代購、拍賣...">
     </div>
     <div class="form-group">
       <label class="form-label">照片</label>
@@ -329,19 +329,13 @@ function setSyncStatus(s){
   d.className='sync-dot'+(s==='syncing'?' syncing':s==='error'?' error':'');
   d.title=s==='syncing'?'同步中...':s==='error'?'同步失敗':'已同步';
 }
-
 async function cloudSave(){
   setSyncStatus('syncing');
   try{
     await setDoc(doc(db,'collection',DOC_ID),{items,categories,backupMeta,updatedAt:Date.now()});
     setSyncStatus('ok');
-  }catch(e){
-    console.error(e);
-    setSyncStatus('error');
-    showToast('⚠️ 儲存失敗，請檢查網路');
-  }
+  }catch(e){console.error(e);setSyncStatus('error');showToast('⚠️ 儲存失敗，請檢查網路');}
 }
-
 async function cloudLoad(){
   try{
     const snap=await getDoc(doc(db,'collection',DOC_ID));
@@ -352,25 +346,19 @@ async function cloudLoad(){
       backupMeta=data.backupMeta||[];
     }
     setSyncStatus('ok');
-  }catch(e){
-    console.error(e);
-    setSyncStatus('error');
-    showToast('⚠️ 載入失敗，請檢查網路');
-  }
+  }catch(e){console.error(e);setSyncStatus('error');showToast('⚠️ 載入失敗，請檢查網路');}
 }
 
 // ── Backup ────────────────────────────────────
 async function checkBackupReminder(){
-  if(items.length===0) return;
+  if(items.length===0)return;
   const banner=document.getElementById('reminderBanner');
   if(backupMeta.length===0){banner.style.display='flex';return;}
   const last=backupMeta[backupMeta.length-1];
-  if(Date.now()-last.ts>=BACKUP_INTERVAL_MS) banner.style.display='flex';
+  if(Date.now()-last.ts>=BACKUP_INTERVAL_MS)banner.style.display='flex';
 }
-
 function dismissReminder(){document.getElementById('reminderBanner').style.display='none';}
 async function doBackupFromReminder(){dismissReminder();await createBackup();}
-
 async function createBackup(){
   const now=new Date();
   const ymd=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
@@ -381,12 +369,11 @@ async function createBackup(){
   a.href=url;a.download=filename;a.click();
   URL.revokeObjectURL(url);
   backupMeta.push({ts:Date.now(),filename,count:items.length});
-  if(backupMeta.length>MAX_BACKUPS) backupMeta=backupMeta.slice(backupMeta.length-MAX_BACKUPS);
+  if(backupMeta.length>MAX_BACKUPS)backupMeta=backupMeta.slice(backupMeta.length-MAX_BACKUPS);
   await cloudSave();
   showToast('✅ 備份已下載');
   renderBackupList();
 }
-
 function renderBackupList(){
   const el=document.getElementById('backupList');
   if(!backupMeta.length){el.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px">尚無備份紀錄</div>`;return;}
@@ -396,21 +383,19 @@ function renderBackupList(){
     return `<div class="backup-item"><div><div class="backup-item-date">${i===0?'🟢 ':''}<span style="font-size:12px">${m.filename}</span></div><div class="backup-item-meta">${ds} · ${m.count} 件</div></div></div>`;
   }).join('')+`<p style="font-size:11px;color:var(--text2);margin-top:4px">保留最近 ${MAX_BACKUPS} 份</p>`;
 }
-
 async function importBackup(e){
   const file=e.target.files[0];if(!file)return;
   try{
     const data=JSON.parse(await file.text());
-    if(!Array.isArray(data.items)) throw new Error();
-    if(!confirm(`確定從備份還原？\n目前 ${items.length} 筆 → 匯入 ${data.items.length} 筆\n此操作無法復原`)) return;
+    if(!Array.isArray(data.items))throw new Error();
+    if(!confirm(`確定從備份還原？\n目前 ${items.length} 筆 → 匯入 ${data.items.length} 筆\n此操作無法復原`))return;
     items=data.items;
-    if(data.categories) categories=data.categories;
+    if(data.categories)categories=data.categories;
     await cloudSave();renderAll();closeBackup();
     showToast(`✅ 已還原 ${items.length} 筆蒐藏`);
   }catch(e){alert('匯入失敗：格式不正確');}
   e.target.value='';
 }
-
 function openBackup(){renderBackupList();document.getElementById('backupOverlay').classList.add('show');}
 function closeBackup(){document.getElementById('backupOverlay').classList.remove('show');}
 
@@ -422,68 +407,107 @@ function toggleIsbn(){document.getElementById('isbnGroup').style.display=isBookC
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
 window.toggleIsbn=toggleIsbn;
 
-// ── FIX 2: ISBN 查詢 - Google Books + Open Library 雙重備援 ──
+// ── ISBN 查詢 + 封面自動加入照片 ──────────────
 let isbnTimer;
+
+// 把封面 URL 轉成 base64 存進 currentPhotos
+async function fetchCoverAsBase64(url){
+  try{
+    // 把 http 換成 https，避免 mixed content
+    const secureUrl=url.replace(/^http:/,'https:');
+    const resp=await fetch(secureUrl);
+    const blob=await resp.blob();
+    return await new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=()=>resolve(reader.result);
+      reader.onerror=reject;
+      reader.readAsDataURL(blob);
+    });
+  }catch(e){
+    console.warn('封面下載失敗:',e);
+    return null;
+  }
+}
 
 async function lookupISBN(isbn){
   const el=document.getElementById('isbnResult');
   el.innerHTML='<span class="spinner"></span>查詢書籍資訊中...';
 
-  // 嘗試 1：Google Books API
+  // 嘗試 1：Google Books
   try{
-    const r=await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&langRestrict=zh`,{signal:AbortSignal.timeout(8000)});
+    const r=await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`,{signal:AbortSignal.timeout(8000)});
     if(r.ok){
       const data=await r.json();
       if(data.totalItems>0&&data.items?.length){
-        renderISBNResult(data.items[0].volumeInfo,'Google Books');
+        const info=data.items[0].volumeInfo;
+        // Google Books 封面用較大尺寸
+        const thumb=(info.imageLinks?.thumbnail||info.imageLinks?.smallThumbnail||'').replace('zoom=1','zoom=2');
+        await renderISBNResult({
+          title:info.title||'',
+          subtitle:info.subtitle||'',
+          authors:(info.authors||[]).join(', '),
+          publisher:info.publisher||'',
+          publishedDate:info.publishedDate||'',
+          thumbnail:thumb
+        },'Google Books');
         return;
       }
     }
   }catch(e){console.warn('Google Books failed:',e);}
 
-  // 嘗試 2：Open Library API（無 CORS 問題，資料豐富）
+  // 嘗試 2：Open Library
   try{
     const r=await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`,{signal:AbortSignal.timeout(8000)});
     if(r.ok){
       const data=await r.json();
-      const key=`ISBN:${isbn}`;
-      if(data[key]){
-        const book=data[key];
-        const info={
+      const book=data[`ISBN:${isbn}`];
+      if(book){
+        await renderISBNResult({
           title:book.title||'',
           authors:(book.authors||[]).map(a=>a.name).join(', '),
           publisher:(book.publishers||[]).map(p=>p.name).join(', '),
           publishedDate:book.publish_date||'',
-          thumbnail:book.cover?.medium||book.cover?.small||''
-        };
-        renderISBNResult(info,'Open Library');
+          thumbnail:book.cover?.large||book.cover?.medium||book.cover?.small||''
+        },'Open Library');
         return;
       }
     }
   }catch(e){console.warn('Open Library failed:',e);}
 
-  // 兩個都失敗
-  el.innerHTML='<span style="color:var(--text2);font-size:12px">⚠️ 找不到書籍資訊，請手動填寫（可能是台灣本地書籍）</span>';
+  el.innerHTML='<span style="color:var(--text2);font-size:12px">⚠️ 找不到書籍資訊，請手動填寫</span>';
 }
 
-function renderISBNResult(info, source){
+async function renderISBNResult(info, source){
   const el=document.getElementById('isbnResult');
-  const {title='',authors='',publisher='',publishedDate='',thumbnail=''}=info;
+  const {title='',subtitle='',authors='',publisher='',publishedDate='',thumbnail=''}=info;
+  const fullTitle=subtitle?`${title}：${subtitle}`:title;
   const year=publishedDate?publishedDate.toString().slice(0,4):'';
   const sourceBadge=source==='Google Books'
     ?`<span class="isbn-source-badge google">Google Books</span>`
     :`<span class="isbn-source-badge openlibrary">Open Library</span>`;
 
-  if(title&&!document.getElementById('f_name').value.trim())
-    document.getElementById('f_name').value=title;
+  if(fullTitle&&!document.getElementById('f_name').value.trim())
+    document.getElementById('f_name').value=fullTitle;
+
+  // 如果有封面，下載成 base64 加入照片
+  let coverAdded=false;
+  if(thumbnail&&currentPhotos.length===0){
+    const b64=await fetchCoverAsBase64(thumbnail);
+    if(b64){
+      currentPhotos.unshift(b64); // 放在最前面
+      renderPhotoPreview();
+      coverAdded=true;
+    }
+  }
 
   el.innerHTML=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:4px;display:flex;gap:10px;align-items:flex-start">
     ${thumbnail?`<img src="${thumbnail}" style="width:50px;flex-shrink:0;border-radius:4px;object-fit:cover;">`:''}
     <div style="flex:1;min-width:0">
-      ${title?`<div style="font-weight:600;margin-bottom:4px;font-size:13px">${title} ${sourceBadge}</div>`:''}
+      ${fullTitle?`<div style="font-weight:600;margin-bottom:4px;font-size:13px">${fullTitle} ${sourceBadge}</div>`:''}
       ${authors?`<div style="font-size:12px;color:var(--text2)">✍️ ${authors}</div>`:''}
       ${publisher?`<div style="font-size:12px;color:var(--text2)">🏢 ${publisher}</div>`:''}
       ${year?`<div style="font-size:12px;color:var(--text2)">📅 ${year}</div>`:''}
+      ${coverAdded?`<div class="cover-added">✅ 封面已自動加入照片</div>`:''}
     </div>
   </div>`;
   showToast('✅ 書籍資訊已自動填入');
@@ -527,17 +551,14 @@ function updateSummary(){
   Object.entries(cc).forEach(([c,n])=>{html+=`<div class="summary-item"><div class="label">${getCatEmoji(c)} ${c}</div><div class="value">${n}件</div></div>`;});
   document.getElementById('summaryBar').innerHTML=html;
 }
-
 function renderTabs(){
   const cc={};items.forEach(i=>{cc[i.cat]=(cc[i.cat]||0)+1;});
   let html=`<button class="tab ${currentTab==='all'?'active':''}" onclick="setTab('all')">全部 <span class="count">${items.length}</span></button>`;
   categories.forEach(c=>{html+=`<button class="tab ${currentTab===c?'active':''}" onclick="setTab('${c}')">${c} <span class="count">${cc[c]||0}</span></button>`;});
   document.getElementById('tabsBar').innerHTML=html;
 }
-
 function setTab(t){currentTab=t;renderTabs();renderList();}
 window.setTab=setTab;
-
 function renderList(){
   const s=document.getElementById('searchInput').value.toLowerCase();
   const filtered=items.filter(i=>{
@@ -566,7 +587,6 @@ function renderList(){
     </div>`;
   }).join('');
 }
-
 function renderAll(){updateSummary();renderTabs();renderList();}
 window.renderList=renderList;
 
@@ -582,7 +602,6 @@ function openAdd(){
   document.getElementById('addOverlay').classList.add('show');
 }
 window.openAdd=openAdd;
-
 function openEdit(id){
   const item=items.find(i=>i.id===id);if(!item)return;
   editingId=id;currentPhotos=item.photos?[...item.photos]:[];
@@ -599,27 +618,22 @@ function openEdit(id){
   populateCatSelect(item.cat);toggleIsbn();renderPhotoPreview();
   closeDetail();document.getElementById('addOverlay').classList.add('show');
 }
-
 function closeAdd(){document.getElementById('addOverlay').classList.remove('show');}
 window.closeAdd=closeAdd;
-
 function populateCatSelect(sel){
   document.getElementById('f_cat').innerHTML=categories.map(c=>`<option value="${c}" ${c===sel?'selected':''}>${getCatEmoji(c)} ${c}</option>`).join('');
   toggleIsbn();
 }
-
 function handlePhotos(e){
   Array.from(e.target.files).forEach(f=>{const r=new FileReader();r.onload=ev=>{currentPhotos.push(ev.target.result);renderPhotoPreview();};r.readAsDataURL(f);});
   e.target.value='';
 }
 window.handlePhotos=handlePhotos;
-
 function renderPhotoPreview(){
   document.getElementById('photoPreview').innerHTML=currentPhotos.map((p,i)=>`<div class="photo-thumb-wrap"><img src="${p}" class="photo-thumb"><button class="photo-remove" onclick="removePhoto(${i})">✕</button></div>`).join('');
 }
 function removePhoto(i){currentPhotos.splice(i,1);renderPhotoPreview();}
 window.removePhoto=removePhoto;
-
 async function saveItem(){
   const name=document.getElementById('f_name').value.trim();
   if(!name){alert('請輸入品名');return;}
@@ -628,7 +642,6 @@ async function saveItem(){
   closeAdd();renderAll();await cloudSave();showToast('✅ 已儲存');
 }
 window.saveItem=saveItem;
-
 async function deleteItem(){
   if(!confirm('確定要刪除？'))return;
   items=items.filter(i=>i.id!==editingId);
@@ -640,12 +653,10 @@ window.deleteItem=deleteItem;
 function openCats(){renderCatList();document.getElementById('catOverlay').classList.add('show');}
 function closeCats(){document.getElementById('catOverlay').classList.remove('show');populateCatSelect(document.getElementById('f_cat').value);}
 window.openCats=openCats;window.closeCats=closeCats;
-
 function renderCatList(){
   const cc={};items.forEach(i=>{cc[i.cat]=(cc[i.cat]||0)+1;});
   document.getElementById('catList').innerHTML=categories.map(c=>`<div class="cat-item"><span class="cat-name">${getCatEmoji(c)} ${c}</span><span class="cat-count">${cc[c]||0} 件</span><button class="cat-delete" onclick="deleteCategory('${c}')">✕</button></div>`).join('');
 }
-
 async function addCategory(){
   const name=document.getElementById('newCatInput').value.trim();if(!name)return;
   if(categories.includes(name)){alert('分類已存在');return;}
@@ -653,7 +664,6 @@ async function addCategory(){
   renderCatList();await cloudSave();
 }
 window.addCategory=addCategory;
-
 async function deleteCategory(name){
   if(items.some(i=>i.cat===name)){alert('此分類還有蒐藏品，無法刪除');return;}
   categories=categories.filter(c=>c!==name);renderCatList();await cloudSave();
@@ -682,7 +692,6 @@ function openDetail(id){
   document.getElementById('detailOverlay').classList.add('show');
 }
 window.openDetail=openDetail;
-
 function selectPhoto(i,src){document.getElementById('mainPhotoImg').src=src;document.querySelectorAll('.detail-photos-row img').forEach((el,idx)=>el.classList.toggle('active',idx===i));}
 window.selectPhoto=selectPhoto;
 function closeDetail(){document.getElementById('detailOverlay').classList.remove('show');}
@@ -697,7 +706,7 @@ window.doBackupFromReminder=doBackupFromReminder;
 window.dismissReminder=dismissReminder;
 window.importBackup=importBackup;
 
-// ── ISBN input listener ────────────────────────
+// ── ISBN input listener ───────────────────────
 document.getElementById('f_isbn').addEventListener('input',e=>{
   clearTimeout(isbnTimer);
   const v=e.target.value.replace(/[-\s]/g,'');
