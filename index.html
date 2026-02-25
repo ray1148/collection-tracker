@@ -9,7 +9,8 @@
 <style>
 :root{--bg:#0f0e0c;--surface:#1a1916;--surface2:#242220;--border:#333129;--accent:#c9a84c;--accent2:#e8c97a;--text:#f0ece0;--text2:#a09880;--danger:#c94c4c;--success:#4caf7d;}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:'Noto Serif TC',serif;min-height:100vh;padding-bottom:80px;}
+html{overflow-x:hidden;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Serif TC',serif;min-height:100vh;padding-bottom:80px;overflow-x:hidden;width:100%;}
 .header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;gap:10px;}
 .header h1{font-size:17px;font-weight:900;color:var(--accent);letter-spacing:2px;flex-shrink:0;}
 .header-right{display:flex;align-items:center;gap:8px;}
@@ -54,15 +55,15 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Serif TC',serif;mi
 .empty .icon{font-size:48px;margin-bottom:12px;}
 .fab{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--accent);color:var(--bg);border:none;font-size:28px;cursor:pointer;box-shadow:0 4px 20px rgba(201,168,76,.4);transition:transform .2s;z-index:200;display:flex;align-items:center;justify-content:center;}
 .fab:hover{transform:scale(1.08);}
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:flex-end;}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:flex-end;overflow:hidden;}
 .overlay.show{display:flex;}
-.modal{background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;width:100%;max-height:92vh;overflow-y:auto;padding:24px 20px;animation:slideUp .3s ease;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;width:100%;max-width:100vw;max-height:92vh;overflow-y:auto;overflow-x:hidden;padding:24px 20px;animation:slideUp .3s ease;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .modal-title{font-size:18px;font-weight:900;color:var(--accent);margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;}
 .close-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;}
 .form-group{margin-bottom:16px;}
 .form-label{display:block;font-size:11px;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;}
-.form-input,.form-select,.form-textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Serif TC',serif;font-size:14px;padding:10px 12px;transition:border-color .2s;outline:none;}
+.form-input,.form-select,.form-textarea{width:100%;max-width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Serif TC',serif;font-size:16px;padding:10px 12px;transition:border-color .2s;outline:none;-webkit-appearance:none;appearance:none;}
 .form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);}
 .form-select option{background:var(--surface2);}
 /* 購買價格/市值 橫排；日期/來源 直排 */
@@ -433,41 +434,56 @@ async function lookupISBN(isbn){
   const el=document.getElementById('isbnResult');
   el.innerHTML='<span class="spinner"></span>查詢書籍資訊中...';
 
-  // 嘗試 1：Google Books
-  try{
-    const r=await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`,{signal:AbortSignal.timeout(8000)});
-    if(r.ok){
-      const data=await r.json();
-      if(data.totalItems>0&&data.items?.length){
-        const info=data.items[0].volumeInfo;
-        // Google Books 封面用較大尺寸
-        const thumb=(info.imageLinks?.thumbnail||info.imageLinks?.smallThumbnail||'').replace('zoom=1','zoom=2');
-        await renderISBNResult({
-          title:info.title||'',
-          subtitle:info.subtitle||'',
-          authors:(info.authors||[]).join(', '),
-          publisher:info.publisher||'',
-          publishedDate:info.publishedDate||'',
-          thumbnail:thumb
-        },'Google Books');
-        return;
-      }
-    }
-  }catch(e){console.warn('Google Books failed:',e);}
+  const clean=isbn.replace(/[-\s]/g,'');
+  // 同時準備 ISBN-10 和 ISBN-13 兩種格式
+  const queries=new Set([clean,isbn]);
+  if(clean.length===13&&clean.startsWith('978')){
+    const nine=clean.slice(3,12);
+    let s=0;for(let i=0;i<9;i++)s+=(10-i)*parseInt(nine[i]);
+    const r=(11-(s%11))%11;
+    queries.add(nine+(r===10?'X':String(r)));
+  }
+  if(clean.length===10){
+    const twelve='978'+clean.slice(0,9);
+    let s=0;for(let i=0;i<12;i++)s+=parseInt(twelve[i])*(i%2===0?1:3);
+    queries.add(twelve+String((10-(s%10))%10));
+  }
 
-  // 嘗試 2：Open Library
+  // 嘗試 Google Books（所有 ISBN 格式）
+  for(const q of queries){
+    try{
+      const r=await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${q}&maxResults=1`,{signal:AbortSignal.timeout(8000)});
+      if(r.ok){
+        const data=await r.json();
+        if(data.totalItems>0&&data.items?.length){
+          const info=data.items[0].volumeInfo;
+          const thumb=(info.imageLinks?.thumbnail||info.imageLinks?.smallThumbnail||'').replace('zoom=1','zoom=2').replace('http:','https:');
+          await renderISBNResult({
+            title:info.title||'',subtitle:info.subtitle||'',
+            authors:(info.authors||[]).join(', '),
+            publisher:info.publisher||'',
+            publishedDate:info.publishedDate||'',
+            thumbnail:thumb
+          },'Google Books');
+          return;
+        }
+      }
+    }catch(e){console.warn('Google Books failed:',e);}
+  }
+
+  // 嘗試 Open Library
   try{
-    const r=await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`,{signal:AbortSignal.timeout(8000)});
+    const r=await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${clean}&format=json&jscmd=data`,{signal:AbortSignal.timeout(8000)});
     if(r.ok){
       const data=await r.json();
-      const book=data[`ISBN:${isbn}`];
+      const book=data[`ISBN:${clean}`];
       if(book){
         await renderISBNResult({
           title:book.title||'',
           authors:(book.authors||[]).map(a=>a.name).join(', '),
           publisher:(book.publishers||[]).map(p=>p.name).join(', '),
           publishedDate:book.publish_date||'',
-          thumbnail:book.cover?.large||book.cover?.medium||book.cover?.small||''
+          thumbnail:(book.cover?.large||book.cover?.medium||book.cover?.small||'').replace('http:','https:')
         },'Open Library');
         return;
       }
@@ -518,7 +534,17 @@ function openScanner(){document.getElementById('scannerOverlay').classList.add('
 function closeScanner(){stopQuagga();document.getElementById('scannerOverlay').classList.remove('show');}
 function startQuagga(){
   if(scannerRunning)return;
-  Quagga.init({inputStream:{name:'Live',type:'LiveStream',target:document.getElementById('interactive'),constraints:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}},decoder:{readers:['ean_reader','ean_8_reader','code_128_reader']},locate:true},err=>{
+  Quagga.init({
+    inputStream:{
+      name:'Live',type:'LiveStream',
+      target:document.getElementById('interactive'),
+      constraints:{facingMode:'environment',width:{ideal:640},height:{ideal:480}}
+    },
+    decoder:{readers:['ean_reader','ean_8_reader'],multiple:false},
+    locate:false,
+    numOfWorkers:2,
+    frequency:10
+  },err=>{
     if(err){document.getElementById('scanStatus').textContent='無法啟動相機，請確認已授予權限';return;}
     Quagga.start();scannerRunning=true;
   });
@@ -526,7 +552,7 @@ function startQuagga(){
   Quagga.onDetected(r=>{
     const code=r.codeResult.code;
     if(code===last){cnt++;}else{last=code;cnt=1;}
-    if(cnt>=3){
+    if(cnt>=2){
       document.getElementById('f_isbn').value=code;closeScanner();
       const c=code.replace(/[-\s]/g,'');
       if(c.length===10||c.length===13)lookupISBN(c);
